@@ -8,7 +8,9 @@ Uses jonomango's "hv" project, found [here](https://github.com/jonomango/hv)  , 
 - Data modification might also be implemented in the future, along with data sending
 
 Processes can be registered & unregistered from user mode for data logging in the hypervisor by using:  
-`hv::register_custom_task(target_pid, task_code::log_send_packets, src_addr, true);` and `hv::register_custom_task(target_pid, task_code::log_send_packets, src_addr, false);`
+`hv::register_custom_task(target_pid, task_code::log_send_packets, src_addr, true);` (register)  
+and...  
+`hv::register_custom_task(target_pid, task_code::log_send_packets, src_addr, false);`  (unregister)  
 
 We then register an MMR:  
 `add_monitored_mem_range(target_pid, src_addr, 1, 4);`  
