@@ -1,0 +1,57 @@
+[257][CPU=3] [PerfWatson2.ex] accessed memory at physical address <0x808671BE0>:
+[258][CPU=3]     MODE: --x
+[259][CPU=3]     PID:  0x295C
+[260][CPU=3]     CPL:  3
+[261][CPU=3]     RIP:  0x7FFBD0E21BE0
+[262][CPU=3]     RSP:  0xFDEA9FDE38
+[263][CPU=3]     RAX:  0x7FFBD0E21BE0
+[264][CPU=3]     RCX:  0x2E4003190E0
+[265][CPU=3]     RDX:  0x0
+[266][CPU=3]     RBX:  0x0
+[267][CPU=3]     RBP:  0xFDEA9FDEF0
+[268][CPU=3]     RSI:  0x2E4004F8828
+[269][CPU=3]     RDI:  0x2E4003190E0
+[270][CPU=3]     R8:   0x2E4004F8828
+[271][CPU=3]     R9:   0x0
+[272][CPU=3]     R10:  0x7FFBADD95CB3
+[273][CPU=3]     R11:  0x0
+[274][CPU=3]     R12:  0x4
+[275][CPU=3]     R13:  0x2E4004F8820
+[276][CPU=3]     R14:  0x0
+[277][CPU=3]     R15:  0x2E472155EB0
+[278][CPU=2]     [DEBUG] pMessage = 0xBE5199F5A0
+[279][CPU=2]     [DEBUG] cBuffers = 3
+[280][CPU=2]     [DEBUG] pBuffers[0].BufferType = 7
+[281][CPU=2]     [DEBUG] pBuffers[1].cbBuffer = 27
+[282][CPU=2]     [INFO] READ SealMessage() from pid=2224, data size: 27
+[283][CPU=2] 48 65 6C 6C 6F 20 53 53 50 49 20 45 6E 63 72 79 70 74 4D 65 73 73 61 67 65 21 00 
+[284][CPU=2]     [DEBUG] pMessage = 0xBE5199F5A0
+[285][CPU=2]     [DEBUG] cBuffers = 3
+[286][CPU=2]     [DEBUG] pBuffers[0].BufferType = 7
+[287][CPU=2]     [DEBUG] pBuffers[1].cbBuffer = 27
+[288][CPU=2]     [INFO] READ SealMessage() from pid=2224, data size: 27
+[289][CPU=2] 48 65 6C 6C 6F 20 53 53 50 49 20 45 6E 63 72 79 70 74 4D 65 73 73 61 67 65 21 00 
+[290][CPU=2]     [DEBUG] pMessage = 0xBE5199F5A0
+[291][CPU=2]     [DEBUG] cBuffers = 3
+[292][CPU=2]     [DEBUG] pBuffers[0].BufferType = 7
+[293][CPU=2]     [DEBUG] pBuffers[1].cbBuffer = 27
+[294][CPU=2]     [INFO] READ SealMessage() from pid=2224, data size: 27
+[295][CPU=2] 48 65 6C 6C 6F 20 53 53 50 49 20 45 6E 63 72 79 70 74 4D 65 73 73 61 67 65 21 00 
+[296][CPU=2]     [DEBUG] pMessage = 0xBE5199F5A0
+[297][CPU=2]     [DEBUG] cBuffers = 3
+[298][CPU=2]     [DEBUG] pBuffers[0].BufferType = 7
+[299][CPU=2]     [DEBUG] pBuffers[1].cbBuffer = 27
+[300][CPU=2]     [INFO] READ SealMessage() from pid=2224, data size: 27
+[301][CPU=2] 48 65 6C 6C 6F 20 53 53 50 49 20 45 6E 63 72 79 70 74 4D 65 73 73 61 67 65 21 00 
+[302][CPU=2]     [DEBUG] pMessage = 0xBE5199F5A0
+[303][CPU=2]     [DEBUG] cBuffers = 3
+[304][CPU=2]     [DEBUG] pBuffers[0].BufferType = 7
+[305][CPU=2]     [DEBUG] pBuffers[1].cbBuffer = 27
+[306][CPU=2]     [INFO] READ SealMessage() from pid=2224, data size: 27
+[307][CPU=2] 48 65 6C 6C 6F 20 53 53 50 49 20 45 6E 63 72 79 70 74 4D 65 73 73 61 67 65 21 00 
+[308][CPU=2]     [DEBUG] pMessage = 0xBE5199F5A0
+[309][CPU=2]     [DEBUG] cBuffers = 3
+[310][CPU=2]     [DEBUG] pBuffers[0].BufferType = 7
+[311][CPU=2]     [DEBUG] pBuffers[1].cbBuffer = 27
+[312][CPU=2]     [INFO] READ SealMessage() from pid=2224, data size: 27
+[313][CPU=2] 48 65 6C 6C 6F 20 53 53 50 49 20 45 6E 63 72 79 70 74 4D 65 73 73 61 67 65 21 00 

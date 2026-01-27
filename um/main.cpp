@@ -25,7 +25,8 @@ enum task_code : uint8_t  //custom hv tasks
 	log_send_packets = 1, //implemented
 	log_recv_packets = 2, //not yet implemented
 	modify_packets = 3, //needs a shared buffer between UM and HV, not yet implemented
-	log_plaintext_tls = 4, //not yet implemented
+	log_plaintext_tls = 4, //in-progress
+	bypass_testsign_check_ntquery = 5, //not yet implemented
 };
 
 /*
@@ -259,38 +260,63 @@ int main(int argc, char** argv)
 		return 0;
 	}
 
-	DWORD target_pid = 1680; //target process to log packets from (only matters for filtering logged data, most dlls will map to the same physical page throughout processes)
+	DWORD target_pid = 2224; //target process to log packets from (only matters for filtering logged data, most dlls will map to the same physical page throughout processes)
 	uintptr_t src_addr = 0;
+	uintptr_t src_addr_send = 0;
 
-	HMODULE hws2_32 = LoadLibraryW(L"ws2_32.dll");
-
-	if (hws2_32)
-	{
-		src_addr = (uintptr_t)GetProcAddress(hws2_32, "send"); //assumes that send() will be mapped to the same physical page for all processes, holds true except for patches on send() causing CoW
-	}
-	else
-	{
-		printf("[ERROR] Couldn't load ws2_32.dll: %d\n", GetLastError());
-		return -1;
-	}
+	bool monitoring_enabled = true; //mmr example to log execution access -> very naice for tracing/debugging live execution in a process. mmr is required for packet logging
+	bool ept_hooking_enabled = false; //ept not being used currently
+	ept_hook hook_info;
 
 	if (argc > 1)
 	{
 		target_pid = atoi(argv[1]);
 		src_addr = strtoull(argv[2], nullptr, 16);
 	}
-
-	hv::register_custom_task(target_pid, task_code::log_send_packets, src_addr, true); //notify log packets to hv
-
-	bool monitoring_enabled = true; //mmr example to log execution access -> very naice for tracing/debugging live execution in a process. mmr is required for packet logging
-	bool ept_hooking_enabled = false; //ept not being used currently
-	ept_hook hook_info;
-
-	if (!add_monitored_mem_range(target_pid, src_addr, 1, 4))
+	else
 	{
-		printf("Failed to add to mmr, check params for NULL values.\n");
-		return -1;
+		HMODULE sspicli = LoadLibraryW(L"sspicli.dll");
+
+		if (sspicli)
+		{
+			src_addr = (uintptr_t)GetProcAddress(sspicli, "EncryptMessage"); //assumes that send() will be mapped to the same physical page for all processes, holds true except for patches on send() causing CoW
+		}
+		else
+		{
+			printf("[ERROR] Couldn't load sspicli.dll: %d\n", GetLastError());
+			return -1;
+		}
+
+		hv::register_custom_task(target_pid, task_code::log_plaintext_tls, src_addr, true); //notify log plaintext TLS to hv
+
+		if (!add_monitored_mem_range(target_pid, src_addr, 1, 4))
+		{
+			printf("Failed to add SealMessage() address to mmr, check params for NULL values.\n");
+			return -1;
+		}
 	}
+
+	//{
+	//	HMODULE hws2_32 = LoadLibraryW(L"ws2_32.dll"); //prepare for send() logging -> target_pid must also have ws2_32.dll loaded
+
+	//	if (hws2_32)
+	//	{
+	//		src_addr_send = (uintptr_t)GetProcAddress(hws2_32, "send"); //assumes that send() will be mapped to the same physical page for all processes, holds true except for patches on send() causing CoW
+	//	}
+	//	else
+	//	{
+	//		printf("[ERROR] Couldn't load ws2_32.dll: %d\n", GetLastError());
+	//		return -1;
+	//	}
+
+	//	hv::register_custom_task(target_pid, task_code::log_send_packets, src_addr_send, true); //notify log packets to hv
+	//  
+	//  if (!add_monitored_mem_range(target_pid, src_addr_send, 1, 4))
+	//  {
+	//	    printf("Failed to add send() address to mmr, check params for NULL values.\n");
+	//	    return -1;
+	//  }
+	//}
 
 	if (ept_hooking_enabled)
 	{
@@ -326,7 +352,8 @@ int main(int argc, char** argv)
 
 	fclose(file);
 
-	hv::register_custom_task(target_pid, task_code::log_send_packets, src_addr, false);
+	hv::register_custom_task(target_pid, task_code::log_plaintext_tls, src_addr, false);
+	//hv::register_custom_task(target_pid, task_code::log_send_packets, src_addr_send, false);
 
 	if (monitoring_enabled)
 	{
@@ -345,5 +372,6 @@ int main(int argc, char** argv)
 	system("pause");
 	return 0;
 }
+
 
 #pragma code_seg(pop)
