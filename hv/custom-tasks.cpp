@@ -14,9 +14,9 @@ namespace hv {
 			return tasks_count;
 		}
 
-		custom_task get_task(uint32_t const index)
+		custom_task get_task(const uint32_t index)
 		{
-			if(max_tasks < index)
+			if (index >= max_tasks)
 				return custom_task{ 0,0,none };
 
 			return tasks[index];

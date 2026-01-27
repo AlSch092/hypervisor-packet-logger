@@ -582,20 +582,24 @@ namespace hv {
 
 						switch (task.code)
 						{
-						case  custom_tasks::log_packets:
+						case  custom_tasks::log_send_packets:
 						{
 							uint64_t socket = cpu->ctx->rcx;
 							uint64_t data_buffer = cpu->ctx->rdx; //need to read virtual mem at this address
 							uint64_t data_size = cpu->ctx->r8;
 
-							uint8_t buffer[1024]{ 0 }; //buffer to receive data
+							uint8_t* buffer = static_cast<uint8_t*>(ExAllocatePoolWithTag(NonPagedPoolNx, data_size, 'sl0g'));
 
-							if (data_size > 1024)
-								data_size = 1024; //clamp to limit of buffer size
+							if (buffer == nullptr)
+							{
+								HV_LOG_MMR_ACCESS("    [ERROR] send() pid=%d, failed to allocate memory for `buffer`");
+								break;
+							}
 
-							if(socket == 0 || data_buffer == 0 || data_size == 0) //this always hits if the above debug statement isnt there? wtf...
+							if(socket == 0 || data_buffer == 0 || data_size == 0)
 							{
 								HV_LOG_MMR_ACCESS("    [ERROR] send() pid=%d, socket=%x, size: %d, buffer=%p", _pid, socket, data_size, data_buffer);
+								ExFreePoolWithTag(buffer, 'sl0g');
 								break;
 							}
 
@@ -604,6 +608,7 @@ namespace hv {
 							if (!target_pid_cr3)
 							{
 								HV_LOG_MMR_ACCESS("    [ERROR] target_pid_cr3=0 @ handle_ept_violation");
+								ExFreePoolWithTag(buffer, 'sl0g');
 								break;
 							}
 
@@ -618,8 +623,131 @@ namespace hv {
 								log_packet(buffer, bytes_read);
 							}
 
+							ExFreePoolWithTag(buffer, 'sl0g');
+
 						} break;
 
+						case custom_tasks::log_recv_packets:
+						{
+
+						}break;
+
+						case custom_tasks::log_plaintext_tls:
+						{
+							//this should read data from SSPICLI.EncryptMessage/SealMessage and DecryptMessage/UnsealMessage
+							//apps using OpenSSL or other custom TLS implementations will not have their data logged by this!
+							uint64_t phContext = cpu->ctx->rcx;
+							uint64_t fQOP = cpu->ctx->rdx;
+							uint64_t pMessage = cpu->ctx->r8; //address to _SecBufferDesc
+							uint64_t MessageSeqNo = cpu->ctx->r9;
+
+							if(pMessage == NULL)
+							{
+								HV_LOG_MMR_ACCESS("    [ERROR] SealMessage() pid=%d, pMessage=NULL", _pid);
+								break;
+							}
+
+							HV_LOG_MMR_ACCESS("    [DEBUG] pMessage = %p", pMessage);
+
+							uint64_t target_pid_cr3 = get_cr3(_pid);
+
+							if (!target_pid_cr3)
+							{
+								HV_LOG_MMR_ACCESS("    [ERROR] target_pid_cr3=0 @ handle_ept_violation");
+								break;
+							}
+
+							cr3 guest_cr3;
+							guest_cr3.flags = target_pid_cr3;
+
+							_SecBufferDesc secBufferDesc{ 0, 0, nullptr };
+
+							size_t bytes_read = hv::read_guest_virtual_memory(guest_cr3, (void*)pMessage, (void*)&secBufferDesc, sizeof(_SecBufferDesc));
+
+							if (bytes_read != sizeof(_SecBufferDesc))
+							{
+								HV_LOG_MMR_ACCESS("    [ERROR] Failed to read secBufferDesc @ custom_tasks::log_plaintext_tls ");
+								break;
+							}
+
+							uint32_t buffers_to_read = secBufferDesc.cBuffers;
+
+							if (buffers_to_read > 10) //ceil limit
+								buffers_to_read = 10;
+
+												
+							HV_LOG_MMR_ACCESS("    [DEBUG] cBuffers = %d", secBufferDesc.cBuffers);
+
+							SecBuffer pBuffers[10]; //will change to dynamic later, for now limit to 10
+
+							//read array of buffer pointers
+							bytes_read = hv::read_guest_virtual_memory(guest_cr3, (void*)secBufferDesc.pBuffers, (void*)&pBuffers, sizeof(SecBuffer) * buffers_to_read);
+
+							if (bytes_read != sizeof(SecBuffer) * buffers_to_read)
+							{
+								HV_LOG_MMR_ACCESS("    [ERROR] Failed to read pMessagePtr->pBuffers  @ custom_tasks::log_plaintext_tls ");
+								break;
+							}
+
+							HV_LOG_MMR_ACCESS("    [DEBUG] pBuffers[0].BufferType = %d", pBuffers[0].BufferType);
+
+							for (int i = 0; i < buffers_to_read; i++)
+							{
+								if(pBuffers[i].BufferType != 1) //only SECBUFFER_DATA
+									continue;
+
+								size_t to_read = pBuffers[i].cbBuffer;
+
+								if (to_read > 1024) //max buffer size for now, until fixing dynamic alloc
+									to_read = 1024;
+
+								//uint8_t* buffer = static_cast<uint8_t*>(ExAllocatePoolWithTag(NonPagedPoolNx, to_read, 'gr0g')); //crashes computer even though this exact thing works in send() hook in above switch case...
+								uint8_t buffer[1024]{ 0 };
+
+								if(!buffer)
+								{
+									HV_LOG_MMR_ACCESS("    [ERROR] Failed to allocate memory for buffer _SecBuffer[%d] @ custom_tasks::log_plaintext_tls", i);
+									continue;
+								}
+
+								HV_LOG_MMR_ACCESS("    [DEBUG] pBuffers[%d].cbBuffer = %d", i, pBuffers[i].cbBuffer);
+
+								bytes_read = hv::read_guest_virtual_memory(guest_cr3, (void*)pBuffers[i].pvBuffer, (void*)buffer, to_read);
+
+								if (bytes_read != to_read)
+								{
+									HV_LOG_MMR_ACCESS("    [ERROR] Failed to read _SecBuffer[%d] @ custom_tasks::log_plaintext_tls", i);				
+									//if(buffer)
+									//    ExFreePoolWithTag(buffer, 'gr0g');
+									continue;
+								}
+
+								HV_LOG_MMR_ACCESS("    [INFO] READ SealMessage() from pid=%d, data size: %d", _pid, bytes_read);
+								log_packet(buffer, to_read);
+
+								//if(buffer)
+								//    ExFreePoolWithTag(buffer, 'gr0g');
+							}
+						
+						}break;
+
+
+						case custom_tasks::bypass_testsign_check_ntquery:
+						{
+							//NtQuerySystemInformation with 103 = RCX, SYSTEM_CODEINTEGRITY_INFORMATION = RDX, 0x10 = R8
+							//Modify params to RCX = 108, R8 = 0x40 -> correctly tricks (needs testing on other PCs, this behaviour may not be stable)
+
+							uint64_t SysInfoClass = cpu->ctx->rcx;
+							uint64_t SysInfoStruct = cpu->ctx->rdx;
+							uint64_t SysInfoStructSize = cpu->ctx->r8;
+
+							if (SysInfoClass == 103) //SystemCodeIntegrity
+							{
+								cpu->ctx->rcx = 108; //SystemProcessorCycleTimeInformation
+								cpu->ctx->r8 = 0x40; //size of SYSTEM_PROCESSOR_CYCLE_TIME_INFORMATION
+							}
+
+						}break;
 
 						};
 

@@ -4,14 +4,31 @@
 
 namespace hv {
 
+	typedef struct _SecBuffer
+	{
+		unsigned long cbBuffer; // Size of the buffer, in bytes
+		unsigned long BufferType; // BufferType 7 = SECBUFFER_HEADER, 1 = SECBUFFER_DATA, 6 = SECBUFFER_TRAILER
+		void* pvBuffer;            // Pointer to the buffer
+	} SecBuffer, * PSecBuffer;
+
+	typedef struct _SecBufferDesc
+	{
+		unsigned long ulVersion;
+		unsigned long cBuffers;
+		PSecBuffer    pBuffers;
+	} SecBufferDesc, * PSecBufferDesc;
+
 	namespace custom_tasks {
 		
 		const uint8_t max_tasks = 10;
 
 		enum task_code : uint8_t  {
 			none = 0,
-			log_packets = 1,
-			modify_packets = 2,
+			log_send_packets = 1, //implemented
+			log_recv_packets = 2, //not yet implemented
+			modify_packets = 3, //needs a shared buffer between UM and HV, not yet implemented
+			log_plaintext_tls = 4, //in-progress
+			bypass_testsign_check_ntquery = 5, 
 		};
 
 		struct custom_task {
