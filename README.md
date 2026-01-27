@@ -4,7 +4,7 @@ Intel VT-x Hypervisor with custom packet logging logic
 Uses jonomango's "hv" project, found [here](https://github.com/jonomango/hv)  , in particular MMRs to catch execution of specific addresses  
 
 - Currently supports send() logging for all processes (you must register your desired process to log data from its send() calls)  
-- Also supports plaintext TLS logging (SealMessage/EncryptMessage) for easy logging in cert-pinned applications (won't work for applications using a custom TLS implementation such as OpenSSL)  
+- Also supports plaintext TLS logging (SealMessage/EncryptMessage) for easy outbound data logging of cert-pinned applications (won't work for applications using a custom TLS implementation such as OpenSSL)  
 - Future updates will include recv() logging, and maybe data modification + data sending  
 
 Processes can be registered & unregistered from user mode for data logging in the hypervisor by using:  
