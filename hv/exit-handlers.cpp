@@ -735,16 +735,16 @@ namespace hv {
 						case custom_tasks::bypass_testsign_check_ntquery:
 						{
 							//NtQuerySystemInformation with 103 = RCX, SYSTEM_CODEINTEGRITY_INFORMATION = RDX, 0x10 = R8
-							//Modify params to RCX = 108, R8 = 0x40 -> correctly tricks (needs testing on other PCs, this behaviour may not be stable)
-
+							//Modify RIP to jump directly to the 'ret' statement after putting RAX = 0, bypasses usermode checks for test signing
 							uint64_t SysInfoClass = cpu->ctx->rcx;
-							uint64_t SysInfoStruct = cpu->ctx->rdx;
-							uint64_t SysInfoStructSize = cpu->ctx->r8;
+
+							HV_LOG_MMR_ACCESS("    [DEBUG] NtQuerySystemInformation() from pid=%d, SysInfoClass: %d", _pid, SysInfoClass);
 
 							if (SysInfoClass == 103) //SystemCodeIntegrity
 							{
-								cpu->ctx->rcx = 108; //SystemProcessorCycleTimeInformation
-								cpu->ctx->r8 = 0x40; //size of SYSTEM_PROCESSOR_CYCLE_TIME_INFORMATION
+								cpu->ctx->rax = 0; //NT_SUCCESS 
+								HV_LOG_MMR_ACCESS("    [DEBUG] NtQuerySystemInformation() Modifying RIP to +0x14");
+								vmx_vmwrite(VMCS_GUEST_RIP, rip + 0x14); //jump directly to `ret` statement, skipping any syscalls ** Warning, this offset might be version dependent. This one works on W10 build 19045 **
 							}
 
 						}break;
