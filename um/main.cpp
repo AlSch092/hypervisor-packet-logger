@@ -30,7 +30,7 @@ enum task_code : uint8_t  //custom hv tasks
 };
 
 /*
-    adds specific VA to MMR for custom logic, tracepoints, etc
+	adds specific VA to MMR for custom logic, tracepoints, etc
 	access_type 1 = read, 2= write, 4 = exec
 */
 bool add_monitored_mem_range(__in const DWORD pid, __in const uintptr_t guest_virtual_addr, __in const int size, __in const uint8_t access_type)
@@ -260,63 +260,104 @@ int main(int argc, char** argv)
 		return 0;
 	}
 
-	DWORD target_pid = 2224; //target process to log packets from (only matters for filtering logged data, most dlls will map to the same physical page throughout processes)
-	uintptr_t src_addr = 0;
+	DWORD target_pid = 15248; //target process to log packets from (only matters for filtering logged data, most dlls will map to the same physical page throughout processes)
+	task_code task_to_perform = task_code::none;
+
+	uintptr_t src_addr = 0; //need to clean this up into an array or something later
 	uintptr_t src_addr_send = 0;
+	uintptr_t src_addr_NtQuerySystemInformation = 0;
 
 	bool monitoring_enabled = true; //mmr example to log execution access -> very naice for tracing/debugging live execution in a process. mmr is required for packet logging
 	bool ept_hooking_enabled = false; //ept not being used currently
-	ept_hook hook_info;
+	ept_hook hook_info; //if  ept_hooking_enabled = true
+
+	bool hooking_send = false;  //need to clean this up into an array or something later
+	bool hooking_plaintext_tls = false;
+	bool bypassing_testsign_check = true;
 
 	if (argc > 1)
 	{
 		target_pid = atoi(argv[1]);
 		src_addr = strtoull(argv[2], nullptr, 16);
+		task_to_perform = static_cast<task_code>(atoi(argv[3]));
 	}
 	else
 	{
-		HMODULE sspicli = LoadLibraryW(L"sspicli.dll");
-
-		if (sspicli)
+		if (hooking_plaintext_tls)
 		{
-			src_addr = (uintptr_t)GetProcAddress(sspicli, "EncryptMessage"); //assumes that send() will be mapped to the same physical page for all processes, holds true except for patches on send() causing CoW
+			HMODULE sspicli = LoadLibraryW(L"sspicli.dll");
+
+			if (sspicli)
+			{
+				src_addr = (uintptr_t)GetProcAddress(sspicli, "EncryptMessage"); //assumes that send() will be mapped to the same physical page for all processes, holds true except for patches on send() causing CoW
+			}
+			else
+			{
+				printf("[ERROR] Couldn't load sspicli.dll: %d\n", GetLastError());
+				return -1;
+			}
+
+			hv::register_custom_task(target_pid, task_code::log_plaintext_tls, src_addr, true); //notify log plaintext TLS to hv
+
+			if (!add_monitored_mem_range(target_pid, src_addr, 1, 4))
+			{
+				printf("Failed to add SealMessage() address to mmr, check params for NULL values.\n");
+				return -1;
+			}
 		}
-		else
-		{
-			printf("[ERROR] Couldn't load sspicli.dll: %d\n", GetLastError());
-			return -1;
-		}
 
-		hv::register_custom_task(target_pid, task_code::log_plaintext_tls, src_addr, true); //notify log plaintext TLS to hv
+	}
 
-		if (!add_monitored_mem_range(target_pid, src_addr, 1, 4))
+	{
+		if (bypassing_testsign_check)
 		{
-			printf("Failed to add SealMessage() address to mmr, check params for NULL values.\n");
-			return -1;
+			HMODULE ntdll = LoadLibraryW(L"ntdll.dll");
+
+			if (ntdll)
+			{
+				src_addr_NtQuerySystemInformation = (uintptr_t)GetProcAddress(ntdll, "NtQuerySystemInformation"); //assumes that send() will be mapped to the same physical page for all processes, holds true except for patches on send() causing CoW
+			}
+			else
+			{
+				printf("[ERROR] Couldn't load ntdll.dll: %d\n", GetLastError());
+				return -1;
+			}
+
+			hv::register_custom_task(target_pid, task_code::bypass_testsign_check_ntquery, src_addr_NtQuerySystemInformation, true); //notify log plaintext TLS to hv
+
+			if (!add_monitored_mem_range(target_pid, src_addr_NtQuerySystemInformation, 1, 4))
+			{
+				printf("Failed to add NtQuerySystemInformation() address to mmr, check params for NULL values.\n");
+				return -1;
+			}
 		}
 	}
 
-	//{
-	//	HMODULE hws2_32 = LoadLibraryW(L"ws2_32.dll"); //prepare for send() logging -> target_pid must also have ws2_32.dll loaded
+	{
+		if (hooking_send)
+		{
+			HMODULE hws2_32 = LoadLibraryW(L"ws2_32.dll"); //prepare for send() logging -> target_pid must also have ws2_32.dll loaded
 
-	//	if (hws2_32)
-	//	{
-	//		src_addr_send = (uintptr_t)GetProcAddress(hws2_32, "send"); //assumes that send() will be mapped to the same physical page for all processes, holds true except for patches on send() causing CoW
-	//	}
-	//	else
-	//	{
-	//		printf("[ERROR] Couldn't load ws2_32.dll: %d\n", GetLastError());
-	//		return -1;
-	//	}
+			if (hws2_32)
+			{
+				src_addr_send = (uintptr_t)GetProcAddress(hws2_32, "send"); //assumes that send() will be mapped to the same physical page for all processes, holds true except for patches on send() causing CoW
+			}
+			else
+			{
+				printf("[ERROR] Couldn't load ws2_32.dll: %d\n", GetLastError());
+				return -1;
+			}
 
-	//	hv::register_custom_task(target_pid, task_code::log_send_packets, src_addr_send, true); //notify log packets to hv
-	//  
-	//  if (!add_monitored_mem_range(target_pid, src_addr_send, 1, 4))
-	//  {
-	//	    printf("Failed to add send() address to mmr, check params for NULL values.\n");
-	//	    return -1;
-	//  }
-	//}
+			hv::register_custom_task(target_pid, task_code::log_send_packets, src_addr_send, true); //notify log packets to hv
+
+			if (!add_monitored_mem_range(target_pid, src_addr_send, 1, 4))
+			{
+				printf("Failed to add send() address to mmr, check params for NULL values.\n");
+				return -1;
+			}
+		}
+
+	}
 
 	if (ept_hooking_enabled)
 	{
@@ -352,8 +393,14 @@ int main(int argc, char** argv)
 
 	fclose(file);
 
-	hv::register_custom_task(target_pid, task_code::log_plaintext_tls, src_addr, false);
-	//hv::register_custom_task(target_pid, task_code::log_send_packets, src_addr_send, false);
+	if (hooking_plaintext_tls)
+		hv::register_custom_task(target_pid, task_code::log_plaintext_tls, src_addr, false);
+
+	if (hooking_send)
+		hv::register_custom_task(target_pid, task_code::log_send_packets, src_addr_send, false);
+
+	if (bypass_testsign_check_ntquery)
+		hv::register_custom_task(target_pid, task_code::bypass_testsign_check_ntquery, src_addr_NtQuerySystemInformation, false);
 
 	if (monitoring_enabled)
 	{
