@@ -9,7 +9,7 @@ Uses jonomango's "hv" project, found [here](https://github.com/jonomango/hv)  , 
 - Bypasses usermode calls to `NtQuerySystemInformation` where `SYSTEM_INFORMATION_CLASS` == 103 (CodeIntegrityInformation) -> Tricks usermode processes into believing testsigning mode is OFF
 
 ## Planned Features:
-- Sending data via send()
+- Sending data via `send()` -> Likely need to hijack execution, modify/insert calldata and re-direct execution to `send()`
 - Additional usermode bypass methods -> Try to trick usermode programs into thinking test signing mode is OFF, debug mode is OFF, secure boot is ON, HVCI is ON, no hypervisor is loaded, etc.
 
 ## Setting up custom tasks:
