@@ -1,7 +1,7 @@
 # helpervisor
 Intel VT-x Hypervisor with custom features to assist with pentesting, game hacking & bypassing
 
-Uses jonomango's "hv" project, found [here](https://github.com/jonomango/hv)  , in particular MMRs to catch execution of specific addresses  
+Uses jonomango's "hv" project, found [here](https://github.com/jonomango/hv) 
 
 ## Current Features:
 - Supports send() logging for all/any processes, recv() will be addded soon
